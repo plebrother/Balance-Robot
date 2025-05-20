@@ -1,6 +1,6 @@
 import socket
 
-HOST = '35.178.11.196'  # server address
+HOST = '192.168.8.101'  # server address
 PORT = 65432        # server port
 
 def connect_to_server(): #Connect to the server, return the socket
