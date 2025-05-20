@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>WhatdoUmean</title>
+<style>
+  body, html {
+    margin: 0; padding: 0; height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: #222;
+    color: #fff;
+    font-family: Arial, sans-serif;
+  }
+  h1 {
+    width: 100%;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 3em;
+  }
+  .container {
+    margin-top: 40px;
+    display: flex;
+    gap: 20px;
+  }
+  .key-box {
+    width: 80px;
+    height: 120px;
+    background: #444;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3em;
+    user-select: none;
+    transition: background-color 0.2s ease;
+  }
+  .key-box.active {
+    background: #0f0;
+    box-shadow: 0 0 15px #0f0;
+  }
+</style>
+</head>
+<body>
+  <h1>WhatdoUmean</h1>
+  <div class="container">
+    <div class="key-box" id="key-w">W</div>
+    <div class="key-box" id="key-a">A</div>
+    <div class="key-box" id="key-s">S</div>
+    <div class="key-box" id="key-d">D</div>
+  </div>
+
+<script>
+  // 监听键盘按下和抬起
+  window.addEventListener('keydown', e => {
+    const key = e.key.toLowerCase();
+    if (['w', 'a', 's', 'd'].includes(key)) {
+      const box = document.getElementById('key-' + key);
+      if (box) box.classList.add('active');
+    }
+  });
+
+  window.addEventListener('keyup', e => {
+    const key = e.key.toLowerCase();
+    if (['w', 'a', 's', 'd'].includes(key)) {
+      const box = document.getElementById('key-' + key);
+      if (box) box.classList.remove('active');
+    }
+  });
+</script>
+</body>
+</html>
+
