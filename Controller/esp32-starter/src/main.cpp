@@ -37,7 +37,7 @@ Adafruit_MPU6050 mpu;
 step step1(STEPPER_INTERVAL_US, STEPPER1_STEP_PIN, STEPPER1_DIR_PIN);
 step step2(STEPPER_INTERVAL_US, STEPPER2_STEP_PIN, STEPPER2_DIR_PIN);
 
-PID balancePid(9000, 17, 80, 0); //(9000, 17, 80, 0);
+PID balancePid(9000, 5, 30, 0); //(9000, 17, 80, 0);
 PID speedPid(1.0, 0.38, 0.23, 0.0);
 PID yawPid(3.0, 0.0, 0.0, 0.0);
 
@@ -48,7 +48,7 @@ float speedCmPerSecond = 0.0;
 float speedCmPerSecond1 = 0.0, speedCmPerSecond2 = 0.0;
 float rotationalSpeedRadPerSecond = 0.0;
 float turnSetpoint = 0.0;
-const float deadBand = 7.0;
+const float deadBand = 1;
 bool motorsEnabled = true;
 
 // === ISR ===
@@ -99,7 +99,7 @@ void loop() {
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
 
-    float pitch = atan2(a.acceleration.z, sqrt(a.acceleration.x * a.acceleration.x + a.acceleration.y * a.acceleration.y)) ; //could add bias
+    float pitch = atan2(a.acceleration.z, sqrt(a.acceleration.x * a.acceleration.x + a.acceleration.y * a.acceleration.y)-2.2) ; //could add bias
     float gyroPitchRate = g.gyro.y;
     float dt = LOOP_INTERVAL / 1000.0;
 
@@ -121,22 +121,23 @@ void loop() {
 
     double speedOutput = speedPid.compute(speedCmPerSecond);
     double targetPitch = speedOutput * 0.001;
-    balancePid.setSetpoint(targetPitch);
+    //balancePid.setSetpoint(targetPitch);
+    balancePid.setSetpoint(0);
 
     double balanceOutput = balancePid.compute(filteredAngle);
     double yawCorrection = yawPid.compute(rotationalSpeedRadPerSecond);
 
-    if (abs(balanceOutput) < deadBand) balanceOutput = 0;
+    //if (abs(balanceOutput) < deadBand) balanceOutput = 0;
 
     step1.setAccelerationRad(-balanceOutput - turnSetpoint + yawCorrection);
     step2.setAccelerationRad(balanceOutput - turnSetpoint + yawCorrection);
 
     if (balanceOutput > 0) {
-      step1.setTargetSpeedRad(-20);
-      step2.setTargetSpeedRad(20);
+      step1.setTargetSpeedRad (-1*balanceOutput);
+      step2.setTargetSpeedRad(1*balanceOutput);
     } else {
-      step1.setTargetSpeedRad(20);
-      step2.setTargetSpeedRad(-20);
+      step1.setTargetSpeedRad(-1*balanceOutput);
+      step2.setTargetSpeedRad(1*balanceOutput);
     }
   }
 
@@ -150,3 +151,4 @@ void loop() {
     Serial.println(rotationalSpeedRadPerSecond);
   }
 }
+
