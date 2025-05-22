@@ -1,5 +1,6 @@
 import socket
 from Raspberry_To_ESP32 import send_command,read_response
+import time
 
 HOST = '0.0.0.0'
 PORT = 65432
@@ -22,9 +23,10 @@ def start_server():
                         break
                     print(f"Received from {addr}: {data.decode().strip()}")
                     send_command(data.decode().strip())
+                    time.sleep(0.2)
                     response = read_response()
                     print("Received from esp32: {}".format(response))
-                    conn.sendall(b"Response from esp32: " + response)
+                    conn.sendall("Response from esp32: {}".format(response).encode())
 
 if __name__ == "__main__":
     start_server()
