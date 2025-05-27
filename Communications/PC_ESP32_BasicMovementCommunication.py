@@ -5,7 +5,7 @@ sock = connect_to_server()
 
 # 保存按键状态和顺序
 pressed_keys = []
-valid_keys = {'w': 'forward', 's': 'backward'}
+valid_keys = {'w': 'w', 's': 's', 'a': 'a', 'd': 'd'}
 
 def send_current_command():
     if pressed_keys:
@@ -13,7 +13,7 @@ def send_current_command():
         send_message(sock, valid_keys[key])
         print(receive_message(sock))
     else:
-        send_message(sock, 'stop')
+        send_message(sock, 'p')
         print(receive_message(sock))
 
 def on_press(key):
@@ -25,7 +25,7 @@ def on_press(key):
             print(receive_message(sock))
     except AttributeError:
         if key == keyboard.Key.esc:
-            print("退出程序")
+            print("[PC] Abort")
             sock.close()
             return False  # 停止监听
 
