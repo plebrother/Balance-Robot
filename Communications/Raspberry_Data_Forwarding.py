@@ -21,8 +21,9 @@ def start_server():
                     data = conn.recv(1024)
                     if not data:
                         break
-                    print(f"Received from {addr}: {data.decode().strip()}")
-                    send_command(data.decode().strip())
+                    elif data.decode().lower() != "listen_esp":
+                        print(f"Received from {addr}: {data.decode().strip()}")
+                        send_command(data.decode().strip())
                     time.sleep(0.2)
                     response = read_response()
                     print("Received from esp32: {}".format(response))

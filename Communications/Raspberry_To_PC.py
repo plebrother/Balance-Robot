@@ -14,7 +14,7 @@ def start_server():
             conn, addr = s.accept()
             print(f"Connected by {addr}")
             with conn:
-                conn.sendall(b"Welcome to the server!\n")
+                #conn.sendall(b"Welcome to the server!\n")
                 while True:
                     data = conn.recv(1024)
                     if not data:
