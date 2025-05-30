@@ -1,5 +1,7 @@
 // 继续调或者不要outerloop(就可以用更稳定的balance,还是说都可以用？) //p should be close to 0
 //correct speedCmPerSecond; deg to speed; stop turning ocasionally; why chrono works and micros() doesn't
+
+// tune yawPid or use yaw to turn
 #include <Arduino.h>
 #include <SPI.h>
 #include <TimerInterrupt_Generic.h>
@@ -31,8 +33,7 @@ const float wheelCircumference = PI * wheelDiameter;
 const int stepsPerRevolution = 200 * 16;
 const float trackWidth = 12.4;
 
-const float vDesired = 30; //adjust to close to speedCmPerSecond
-//const float dbcompensation = 70;  // Minimum speed in rad/s to prevent stalling
+
 
 // === OBJECTS ===
 ESP32Timer ITimer(3);
@@ -41,21 +42,32 @@ Adafruit_MPU6050 mpu;
 step step1(STEPPER_INTERVAL_US, STEPPER1_STEP_PIN, STEPPER1_DIR_PIN);
 step step2(STEPPER_INTERVAL_US, STEPPER2_STEP_PIN, STEPPER2_DIR_PIN);
 
-PID balancePid(9000,5,50,0);//(9000, 5, 30, 0); //(9000, 17, 80, 0); //adjust
-PID speedPid(1, 6, 1, vDesired); // (1.0, 0.38, 0.23, 0); //adjust 0.38 1 以及 下面的2个
-PID yawPid(3.0, 0.0, 0.0, 0.0);
+PID balancePid(900,0,50,0); //(remember the +-120 limits in PIDController.h) p should be large for fast reaction, i is replaced by bias, and a not too large d reduces oscillation //(900,0,50,0) //(9000, 5, 30, 0); //(9000, 17, 80, 0); //adjust
+PID speedPid(2.6, 0, 0.9, 0); // smaller p i d values //(3.6, 0, 0.9, 0) // (1.0, 0.38, 0.23, 0); //adjust 这里 以及 下面的2个
+PID yawPid(2.9, 0.0, 0, 0.0);
 
 // === GLOBAL STATE ===
+
+ float vDesired = 0; //adjust to close to speedCmPerSecond
+//const float dbcompensation = 70;  // Minimum speed in rad/s to prevent stalling
+
 float filteredAngle = 0.0, previousFilteredAngle = 0.0;
 float emaSpeed1 = 0.0, emaSpeed2 = 0.0;
 float speedCmPerSecond = 0.0;
 float speedCmPerSecond1 = 0.0, speedCmPerSecond2 = 0.0;
 float rotationalSpeedRadPerSecond = 0.0;
-float turnSetpoint = 0.0;
+
 // const float deadBand = 1;
 bool motorsEnabled = true;
 
-static unsigned long startTime = millis(); // for testing
+bool isTurning = false;
+float turnVal = 0.0;
+
+float yawCorrection = 0;
+
+
+
+// static unsigned long startTime = millis(); // for testing
 
 // === ISR ===
 bool IRAM_ATTR TimerHandler(void *timerNo) {
@@ -89,7 +101,7 @@ void setup() {
   }
   Serial.println("Initialised Interrupt for Stepper");
 
-  step1.setAccelerationRad(10.0); //adjust
+  step1.setAccelerationRad(10.0); 
   step2.setAccelerationRad(10.0);
   
   pinMode(STEPPER_EN_PIN, OUTPUT);
@@ -111,12 +123,16 @@ void loop() {
 
   if (millis() > loopTimer) {
 
+    // launch
+    //step1.setTargetSpeedRad (-30); 
+    //step2.setTargetSpeedRad(30);
+
     loopTimer += LOOP_INTERVAL;
 
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
 
-    float pitch = atan2(a.acceleration.z, a.acceleration.x ) ;//- 1.2*PI/180; //could add bias
+    float pitch = atan2(a.acceleration.z, a.acceleration.x ) - 0.02;//- 1.2*PI/180; //could add bias
     //delay(300);
     float gyroPitchRate = g.gyro.y; //
     //Serial.println(g.gyro.z);
@@ -126,8 +142,8 @@ void loop() {
     previousFilteredAngle = filteredAngle;
 
     float rawSpeed1 = step1.getSpeed() / 2000.0;
-    Serial.print("raw speed: ");
-    Serial.println(rawSpeed1);
+    //Serial.print("raw speed: ");
+    //Serial.println(rawSpeed1);
     float rawSpeed2 = step2.getSpeed() / 2000.0;
     // Serial.println(rawSpeed1);
     emaSpeed1 = alphaEMA * rawSpeed1 + (1 - alphaEMA) * emaSpeed1;
@@ -143,9 +159,54 @@ void loop() {
 
     // === Outer loop: velocity PID ===
     
+
+    //if (millis() - startTime > 1000) {
+      //speedPid.setSetpoint(-0.02);  // Stop after 1 second
+    //}
+
+    //if (millis() - startTime > 2000) {  // 1000 ms = 1 second
+      //balancePid.setSetpoint(-0.02);  // Stop movement(adjust angle)
+    //} // for testing
+
+
+    if (Serial.available() > 0) {
+      char cmd = Serial.read();
+    if (cmd == 'p') {
+      vDesired = 0; // stop speed command
+      isTurning = 0;
+      turnVal = 0;         // stop any turning
+      Serial.println("STOP command received");
+    }
+    if (cmd == 'w') {
+      vDesired = 30; 
+      isTurning = 0;
+      turnVal = 0;         
+      Serial.println("FORWARD command received");
+    }
+    if (cmd == 's') {
+      vDesired = -30; 
+      isTurning = 0;
+      turnVal = 0;         
+      Serial.println("BACKWARD command received");
+    }
+    if (cmd == 'a') {
+      vDesired = 0; 
+      isTurning = 1;
+      turnVal = 0.7;  //adjust       
+      Serial.println("LEFT command received");
+    }
+    if (cmd == 'd') {
+      vDesired = 0; 
+      isTurning = 1;
+      turnVal = -0.7; //adjust        
+      Serial.println("BACKWARD command received");
+    }
+
+    }
+    
     speedPid.setSetpoint(vDesired);
     float speedOutput = speedPid.compute(speedCmPerSecond) ; 
-    Serial.print("speed: ");
+    Serial.print("speedOutput: ");
     Serial.println(speedOutput);
 
     
@@ -158,7 +219,7 @@ void loop() {
        targetPitch = (speedOutput + 100) * 0.0006;
     } // adjust*/
 
-    double targetPitch = speedOutput * 0.0003; 
+    double targetPitch = speedOutput * 0.00038; // adjust
     //targetPitch = -0.05; //skip pid
     balancePid.setSetpoint(targetPitch); // targetPitch is in rad. make targetPitch + 0.2rad or -0.2rad (let vDesired=1)
     //balancePid.setSetpoint(0);
@@ -168,8 +229,8 @@ void loop() {
     targetPitch = constrain(targetPitch, -0.3, 0.3);  // ±18 degrees
     
 
-    Serial.print("targetPitch: ");
-    Serial.println(targetPitch);
+    //Serial.print("targetPitch: ");
+    //Serial.println(targetPitch);
 
     Serial.print("filteredAngle: ");
     Serial.println(filteredAngle);
@@ -177,8 +238,13 @@ void loop() {
     float balanceOutput = balancePid.compute(filteredAngle) ;
     Serial.print("balance: ");
     Serial.println(balanceOutput);
-
-    float yawCorrection = yawPid.compute(rotationalSpeedRadPerSecond);
+ 
+    if(!isTurning){ 
+      yawCorrection = yawPid.compute(rotationalSpeedRadPerSecond);
+    }
+    else{
+      yawCorrection = 0;
+    }
 
     //if (abs(balanceOutput) < deadBand) balanceOutput = 0;
     // Apply deadband compensation to prevent motor stall
@@ -187,48 +253,41 @@ void loop() {
       //balanceOutput = copysign(dbcompensation, balanceOutput);
     //}
 
-    step1.setAccelerationRad(-balanceOutput - turnSetpoint + yawCorrection);
-    step2.setAccelerationRad(balanceOutput - turnSetpoint + yawCorrection);
+    
+    step1.setAccelerationRad(-balanceOutput - turnVal + yawCorrection);
+    step2.setAccelerationRad(balanceOutput - turnVal + yawCorrection); //adjuyst
+    Serial.print("turnVal: ");
+    Serial.println(turnVal);
 
     Serial.print("speedCmPerSecond: ");
     Serial.println(speedCmPerSecond);
-    if (balanceOutput > 0) { // for pitch direction check
-      step1.setTargetSpeedRad (-30.0); //can never reach, just to make it move or proportional to vDesired
-      step2.setTargetSpeedRad(30.0);
+
+    
+      if (balanceOutput > 0) { 
+      step1.setTargetSpeedRad (-30); // proportional to vDesired(set as a constant for initialisation) and a set constant for vDesired=0
+      step2.setTargetSpeedRad(30);
     } else {
-      step1.setTargetSpeedRad(30.0);
-      step2.setTargetSpeedRad(-30.0);
+      step1.setTargetSpeedRad(30);
+      step2.setTargetSpeedRad(-30);
     }
     
-    //Serial.print(" | speedOut: ");
-    //Serial.println(speedOutput);
-
-
-
-    Serial.print(" | speedOut: ");
-    Serial.println(speedOutput);
-
-    //if (millis() - startTime > 1000) {
-      //speedPid.setSetpoint(-0.02);  // Stop after 1 second
-    //}
-
     
-
-    //if (millis() - startTime > 2) {  // 1000 ms = 1 second
-      //balancePid.setSetpoint(-0.02);  // Stop movement(adjust angle)
-    //} // for testing
+    
+  
+    
   }
+
+
 
   if (millis() > printTimer) {
   
     printTimer += PRINT_INTERVAL;
-    Serial.print("Angle: ");
-    Serial.print(filteredAngle * 180 / PI);
-    Serial.print(" | Speed: ");
-    Serial.print(speedCmPerSecond);
-    Serial.print(" | Rotation: ");
-    Serial.println(rotationalSpeedRadPerSecond);
+    //Serial.print("Angle: ");
+    //Serial.print(filteredAngle * 180 / PI);
+    //Serial.print(" | Speed: ");
+    //Serial.print(speedCmPerSecond);
+    //Serial.print(" | Rotation: ");
+    //Serial.println(rotationalSpeedRadPerSecond);
     
   }
 }
-
