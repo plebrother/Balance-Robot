@@ -204,13 +204,13 @@ void loop() {
        // 左黑右白 → 右转
        vDesired = 0;
        isTurning = 1;
-       turnVal = 0.7;  // 正值右转（你原代码用负值左转）
+       turnVal = -0.7;  // 正值右转（你原代码用负值左转）
     }
     else if (rightLineValue == 0 && leftLineValue == 1) {
         // 右黑左白 → 左转
         vDesired = 0;
         isTurning = 1;
-        turnVal = -0.7;
+        turnVal = 0.7;
     }
     else if (leftLineValue == 0 && rightLineValue == 0) {
         // 两侧都黑 → 停止或稍作后退
