@@ -72,6 +72,8 @@ const int ADC_CS_PIN        = 5;
 const int ADC_SCK_PIN       = 18;
 const int ADC_MISO_PIN      = 19;
 const int ADC_MOSI_PIN      = 23;
+const int lineSensorLeftPin = 34;   // 左侧光敏模块 OUT 接 ESP32 GPIO34
+const int lineSensorRightPin = 35;  // 右侧光敏模块 OUT 接 ESP32 GPIO35
 
 // static unsigned long startTime = millis(); // for testing
 
@@ -136,6 +138,10 @@ void setup() {
 
   yawPid.isYawFn(true);
 
+  // === ADD: 初始化光敏传感器引脚 ===
+  pinMode(lineSensorLeftPin, INPUT);
+  pinMode(lineSensorRightPin, INPUT);
+
 }
 
 // === LOOP ===
@@ -190,40 +196,33 @@ void loop() {
       //balancePid.setSetpoint(-0.02);  // Stop movement(adjust angle)
     //} // for testing
 
+    // === ADD: 用光敏信号控制 ===
+    int leftLineValue = digitalRead(lineSensorLeftPin);
+    int rightLineValue = digitalRead(lineSensorRightPin);
 
-    if (Serial.available() > 0) {
-      char cmd = Serial.read();
-    if (cmd == 'p') {
-      vDesired = 0; // stop speed command
-      isTurning = 0;
-      turnVal = 0;         // stop any turning
-      //Serial.println("STOP command received");
+    if (leftLineValue == 0 && rightLineValue == 1) {
+       // 左黑右白 → 右转
+       vDesired = 0;
+       isTurning = 1;
+       turnVal = 0.7;  // 正值右转（你原代码用负值左转）
     }
-    if (cmd == 'w') {
-      vDesired = 30; 
-      isTurning = 0;
-      turnVal = 0;         
-      //Serial.println("FORWARD command received");
+    else if (rightLineValue == 0 && leftLineValue == 1) {
+        // 右黑左白 → 左转
+        vDesired = 0;
+        isTurning = 1;
+        turnVal = -0.7;
     }
-    if (cmd == 's') {
-      vDesired = -30; 
-      isTurning = 0;
-      turnVal = 0;         
-      //Serial.println("BACKWARD command received");
+    else if (leftLineValue == 0 && rightLineValue == 0) {
+        // 两侧都黑 → 停止或稍作后退
+        vDesired = -20;
+        isTurning = 0;
+        turnVal = 0;    
     }
-    if (cmd == 'a') {
-      vDesired = 0; 
-      isTurning = 1;
-      turnVal = 0.7;  //adjust       
-      //Serial.println("LEFT command received");
-    }
-    if (cmd == 'd') {
-      vDesired = 0; 
-      isTurning = 1;
-      turnVal = -0.7; //adjust        
-      //Serial.println("BACKWARD command received");
-    }
-
+    else {
+        // 都是白 → 直行
+        vDesired = 30;
+        isTurning = 0;
+        turnVal = 0;
     }
     
     speedPid.setSetpoint(vDesired);
