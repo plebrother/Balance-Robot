@@ -1,10 +1,8 @@
 import serial
 import time
 
-# 根据你的操作系统设置正确的串口：
-# Windows: COM3、COM5 等
-# Linux/Mac: /dev/ttyUSB0 或 /dev/tty.SLAB_USBtoUART
-PORT = 'COM3'  #  替换为你的设备
+
+PORT = 'COM3'  #/dev/ttyUSB0 on linux
 
 ser = serial.Serial(PORT, baudrate=115200, timeout=1)
 time.sleep(2)

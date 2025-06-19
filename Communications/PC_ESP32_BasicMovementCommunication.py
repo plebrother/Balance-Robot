@@ -6,7 +6,7 @@ from PC_Client import connect_to_server,send_message,receive_message
 
 sock = connect_to_server()
 
-# 保存按键状态和顺序
+
 pressed_keys = []
 valid_keys = {'w': 'w', 's': 's', 'a': 'a', 'd': 'd'}
 input_state = {"keyboard": None, "joystick": None}
@@ -35,7 +35,7 @@ def on_press(key):
         if key == keyboard.Key.esc:
             print("[PC] Abort")
             sock.close()
-            return False  # 停止监听
+            return False  
 
 def on_release(key):
     try:
@@ -45,9 +45,9 @@ def on_release(key):
             input_state['keyboard'] = valid_keys[pressed_keys[0]] if pressed_keys else None
             send_current_command()
     except AttributeError:
-        pass  # 忽略非字符键释放
+        pass  
 
-# 启动监听器
+
 
 
 def get_joystick_command(x,y,deadzone=0.05):
@@ -69,7 +69,7 @@ def joystick_listener():
     last_status = None
 
     while True:
-        # 刷新手柄状态
+
         #pygame.joystick.quit()
         pygame.joystick.init()
         joystick_count = pygame.joystick.get_count()
@@ -111,7 +111,7 @@ def joystick_listener():
                 command = get_joystick_command(x, y)
                 input_state["joystick"] = command
                 send_current_command()
-                time.sleep(0.05)  # 维持高频率
+                time.sleep(0.05)  
             except pygame.error:
                 print("[PC] Joystick error — unplugged?")
                 joystick = None
